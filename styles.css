@@ -1,0 +1,35 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+}
+
+h1 {
+  margin-bottom: 10px;
+}
+
+.controls {
+  margin-bottom: 20px;
+}
+
+.movie-card {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+.movie-card h2 {
+  margin-top: 0;
+}
+
+.timeslots {
+  margin-top: 10px;
+  padding-left: 20px;
+}
+
+.cinema-block {
+  margin-bottom: 10px;
+}
+
+.cinema-block h3 {
+  margin: 5px 0;
+} 
