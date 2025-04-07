@@ -12,6 +12,12 @@ document.addEventListener("DOMContentLoaded", () => {
     .addEventListener("click", fetchMovies);
 });
 
+const CINEMA_NAMES = {
+  '1823': 'Timisoara Shopping City',
+  '1802': 'Timisoara Iulius Mall'
+};
+
+
 async function fetchMovies() {
   const moviesContainer = document.getElementById("moviesContainer");
   moviesContainer.innerHTML = "Loading...";
@@ -195,7 +201,7 @@ async function fetchMovies() {
         cinemaDiv.className = "cinema-block";
 
         const cinemaTitle = document.createElement("h3");
-        cinemaTitle.textContent = `Cinema ${cinemaId}`;
+        cinemaTitle.textContent = CINEMA_NAMES[cinemaId] || `Cinema ${cinemaId}`;
         cinemaDiv.appendChild(cinemaTitle);
 
         cinemaSlots.forEach(slot => {
