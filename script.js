@@ -17,6 +17,19 @@ const CINEMA_NAMES = {
   '1802': 'Timisoara Iulius Mall'
 };
 
+function formatAttributes(attributes) {
+  // Map common attributes to user-friendly format
+  const formatMap = {
+    '2d': '2D',
+    '3d': '3D',
+    'imax': 'IMAX',
+    'sub-en': 'Subtitles: English',
+    'sub-ro': 'Subtitles: Romanian',
+    'dubbed-ro': 'Dubbed: Romanian'
+  };
+
+  return attributes.map(attr => formatMap[attr.toLowerCase()] || attr).join(', ');
+}
 
 async function fetchMovies() {
   const moviesContainer = document.getElementById("moviesContainer");
@@ -30,15 +43,11 @@ async function fetchMovies() {
   const selectedDate = document.getElementById("datePicker").value;
 
   // We'll store all movie data in this object
-  // Key = movie name, Value = { name, timeslots: { [cinemaId]: [ {time, attributes}, ... ] }, omdb: {...} }
   const allMovies = {};
-
-  // A set to track unique movie names (so we only call OMDb once per movie)
   const uniqueMovieNames = new Set();
 
   // 1) Fetch from Cinema City for each cinema ID
   for (const cinemaId of cinemaIds) {
-    // Use the reverse proxy for Cinema City API
     const cinemaUrl = `/proxy/cinema-city?cinemaId=${cinemaId}&date=${selectedDate}`;
 
     try {
@@ -51,21 +60,18 @@ async function fetchMovies() {
       const films = data.body.films || [];
       const events = data.body.events || [];
 
-      // Map filmId -> film info
       const filmMap = {};
       films.forEach(f => {
         filmMap[f.id] = f;
       });
 
-      // Assign events to the correct film
       events.forEach(evt => {
         const filmId = evt.filmId;
         const film = filmMap[filmId];
-        if (!film) return; // Safety check
+        if (!film) return;
 
         const filmName = film.name;
 
-        // Initialize structure if not present
         if (!allMovies[filmName]) {
           allMovies[filmName] = {
             name: filmName,
@@ -79,7 +85,6 @@ async function fetchMovies() {
           allMovies[filmName].timeslots[cinemaId] = [];
         }
 
-        // Extract time from ISO datetime string
         const eventDate = new Date(evt.eventDateTime);
         const timeString = eventDate.toLocaleTimeString('en-US', { 
           hour: '2-digit', 
@@ -102,34 +107,26 @@ async function fetchMovies() {
   // 2) Fetch OMDb ratings for each unique movie
   for (const movieName of uniqueMovieNames) {
     try {
-      // Use the reverse proxy for OMDb API
       const omdbUrl = `/proxy/omdb?title=${encodeURIComponent(movieName)}`;
       const omdbResponse = await fetch(omdbUrl);
       const omdbData = await omdbResponse.json();
 
       if (omdbData.Response === "True") {
-        // Extract IMDb + Rotten Tomatoes
-        let imdbRating = omdbData.imdbRating || "N/A";
         let rtRating = "N/A";
         if (omdbData.Ratings && Array.isArray(omdbData.Ratings)) {
-          const rtObj = omdbData.Ratings.find(
-            r => r.Source === "Rotten Tomatoes"
-          );
+          const rtObj = omdbData.Ratings.find(r => r.Source === "Rotten Tomatoes");
           if (rtObj) {
             rtRating = rtObj.Value;
           }
         }
 
         allMovies[movieName].omdb = {
-          imdbRating,
+          imdbRating: omdbData.imdbRating || "N/A",
           rtRating,
           year: omdbData.Year,
           plot: omdbData.Plot,
           poster: omdbData.Poster,
         };
-      } else {
-        // Possibly store the error
-        allMovies[movieName].omdb = { error: omdbData.Error };
       }
     } catch (err) {
       console.error("Error fetching OMDb data for:", movieName, err);
@@ -138,83 +135,138 @@ async function fetchMovies() {
 
   // 3) Render everything in the DOM
   moviesContainer.innerHTML = "";
-  const sortedMovieNames = Object.keys(allMovies).sort(); // sort alphabetically
+  const sortedMovieNames = Object.keys(allMovies).sort();
 
   sortedMovieNames.forEach(movieName => {
     const movieInfo = allMovies[movieName];
     const movieCard = document.createElement("div");
     movieCard.className = "movie-card";
 
-    // Title
-    const titleEl = document.createElement("h2");
-    titleEl.textContent = movieName;
-    movieCard.appendChild(titleEl);
+    // Create the main content section
+    const content = document.createElement("div");
+    content.className = "movie-content";
 
-    // Basic film length if available
-    if (movieInfo.length) {
-      const lengthEl = document.createElement("p");
-      lengthEl.textContent = `Length: ${movieInfo.length} mins`;
-      movieCard.appendChild(lengthEl);
+    // Create the header section (poster + info)
+    const header = document.createElement("div");
+    header.className = "movie-header";
+
+    // Add poster
+    if (movieInfo.omdb?.poster && movieInfo.omdb.poster !== "N/A") {
+      const poster = document.createElement("img");
+      poster.src = movieInfo.omdb.poster;
+      poster.alt = `${movieName} Poster`;
+      poster.className = "movie-poster";
+      header.appendChild(poster);
     }
 
-    // OMDb info
+    // Create info section
+    const info = document.createElement("div");
+    info.className = "movie-info";
+
+    // Add title
+    const title = document.createElement("h2");
+    title.className = "movie-title";
+    title.textContent = movieName;
+    info.appendChild(title);
+
+    // Add description (plot)
+    if (movieInfo.omdb?.plot) {
+      const desc = document.createElement("div");
+      desc.className = "movie-description";
+      desc.textContent = movieInfo.omdb.plot;
+      info.appendChild(desc);
+    }
+
+    // Add ratings
     if (movieInfo.omdb) {
-      const { imdbRating, rtRating, year, plot, poster, error } =
-        movieInfo.omdb;
-
-      if (!error) {
-        const ratingsEl = document.createElement("p");
-        ratingsEl.textContent = `IMDb: ${imdbRating}, RT: ${rtRating}`;
-        movieCard.appendChild(ratingsEl);
-
-        // Optionally show year or plot
-        const yearEl = document.createElement("p");
-        yearEl.textContent = `Year: ${year}`;
-        movieCard.appendChild(yearEl);
-
-        const plotEl = document.createElement("p");
-        plotEl.textContent = `Plot: ${plot}`;
-        movieCard.appendChild(plotEl);
-
-        if (poster && poster !== "N/A") {
-          const posterImg = document.createElement("img");
-          posterImg.src = poster;
-          posterImg.alt = `${movieName} Poster`;
-          posterImg.style.width = "100px";
-          movieCard.appendChild(posterImg);
-        }
-      } else {
-        const errorEl = document.createElement("p");
-        errorEl.textContent = `OMDb Error: ${error}`;
-        movieCard.appendChild(errorEl);
+      const ratings = document.createElement("div");
+      ratings.className = "movie-ratings";
+      
+      if (movieInfo.omdb.imdbRating !== "N/A") {
+        const imdb = document.createElement("div");
+        imdb.className = "rating";
+        imdb.textContent = `IMDb: ${movieInfo.omdb.imdbRating}/10`;
+        ratings.appendChild(imdb);
       }
+      
+      if (movieInfo.omdb.rtRating !== "N/A") {
+        const rt = document.createElement("div");
+        rt.className = "rating";
+        rt.textContent = `Rotten Tomatoes: ${movieInfo.omdb.rtRating}`;
+        ratings.appendChild(rt);
+      }
+      
+      info.appendChild(ratings);
     }
 
-    // Timeslots
-    const timeslotsWrapper = document.createElement("div");
-    timeslotsWrapper.className = "timeslots";
+    // Add format badges
+    const uniqueFormats = new Set();
+    Object.values(movieInfo.timeslots).forEach(slots => {
+      slots.forEach(slot => {
+        slot.attributes.forEach(attr => uniqueFormats.add(attr));
+      });
+    });
 
-    for (const cinemaId of cinemaIds) {
-      const cinemaSlots = movieInfo.timeslots[cinemaId];
-      if (cinemaSlots && cinemaSlots.length > 0) {
-        const cinemaDiv = document.createElement("div");
-        cinemaDiv.className = "cinema-block";
+    if (uniqueFormats.size > 0) {
+      const badges = document.createElement("div");
+      badges.className = "format-badges";
+      Array.from(uniqueFormats).forEach(format => {
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = format;
+        badges.appendChild(badge);
+      });
+      info.appendChild(badges);
+    }
+
+    header.appendChild(info);
+    content.appendChild(header);
+    movieCard.appendChild(content);
+
+    // Add Show More button
+    const showMoreBtn = document.createElement("button");
+    showMoreBtn.className = "show-more-btn";
+    showMoreBtn.textContent = "Show More";
+    movieCard.appendChild(showMoreBtn);
+
+    // Create timeslots section (initially hidden)
+    const timeslots = document.createElement("div");
+    timeslots.className = "timeslots";
+
+    // Add timeslots for each cinema
+    Object.entries(movieInfo.timeslots).forEach(([cinemaId, slots]) => {
+      if (slots.length > 0) {
+        const cinemaBlock = document.createElement("div");
+        cinemaBlock.className = "cinema-block";
 
         const cinemaTitle = document.createElement("h3");
         cinemaTitle.textContent = CINEMA_NAMES[cinemaId] || `Cinema ${cinemaId}`;
-        cinemaDiv.appendChild(cinemaTitle);
+        cinemaBlock.appendChild(cinemaTitle);
 
-        cinemaSlots.forEach(slot => {
-          const slotEl = document.createElement("p");
-          slotEl.textContent = `${slot.time} (${slot.attributes.join(", ")})`;
-          cinemaDiv.appendChild(slotEl);
+        const showtimes = document.createElement("div");
+        showtimes.className = "showtimes";
+
+        slots.sort((a, b) => a.time.localeCompare(b.time));
+        slots.forEach(slot => {
+          const showtime = document.createElement("span");
+          showtime.className = "showtime";
+          showtime.textContent = `${slot.time}`;
+          showtimes.appendChild(showtime);
         });
 
-        timeslotsWrapper.appendChild(cinemaDiv);
+        cinemaBlock.appendChild(showtimes);
+        timeslots.appendChild(cinemaBlock);
       }
-    }
+    });
 
-    movieCard.appendChild(timeslotsWrapper);
+    movieCard.appendChild(timeslots);
+
+    // Add click handler for Show More button
+    showMoreBtn.addEventListener("click", () => {
+      timeslots.classList.toggle("visible");
+      showMoreBtn.textContent = timeslots.classList.contains("visible") ? "Show Less" : "Show More";
+    });
+
     moviesContainer.appendChild(movieCard);
   });
 } 
