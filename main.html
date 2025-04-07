@@ -129,8 +129,16 @@
               allMovies[filmName].timeslots[cinemaId] = [];
             }
 
+            // Extract time from ISO datetime string
+            const eventDate = new Date(evt.eventDateTime);
+            const timeString = eventDate.toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false 
+            });
+
             allMovies[filmName].timeslots[cinemaId].push({
-              time: evt.time,
+              time: timeString,
               attributes: evt.attributeIds || [],
             });
 
