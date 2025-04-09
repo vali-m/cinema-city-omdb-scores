@@ -4,7 +4,7 @@
         {
             "label": "docker-serve",
             "type": "shell",
-            "command": "docker ps | grep cinema-city-ratings | awk '{print $1}' | xargs -r docker stop | xargs -r docker rm && docker rm -f cinema-nginx 2>/dev/null || true && docker build -t cinema-nginx . && docker run -d -p 8080:80 --name cinema-nginx cinema-nginx",
+            "command": "docker compose down && docker compose up -d",
             "presentation": {
                 "reveal": "always",
                 "panel": "new"
