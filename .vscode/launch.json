@@ -5,10 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Start App",
             "type": "chrome",
             "request": "launch",
-            "name": "Open main.html",
-            "file": "/Users/vali/cinema-city-omdb-scores/main.html"
+            "url": "http://localhost:8080/main.html",
+            "webRoot": "${workspaceFolder}",
+            "preLaunchTask": "docker-serve"
         }
     ]
 }
