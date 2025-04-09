@@ -1,8 +1,8 @@
-version: '3.8'
-
 services:
   nginx:
     build: .
     ports:
       - "8080:80"
-    container_name: cinema-nginx 
+    container_name: cinema-nginx
+    env_file:
+      - .env 
